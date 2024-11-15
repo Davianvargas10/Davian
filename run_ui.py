@@ -1,3 +1,4 @@
+import argparse
 import json
 from functools import wraps
 import os
@@ -24,6 +25,7 @@ app = Flask("app", static_folder=get_abs_path("./webui"), static_url_path="/")
 app.config["JSON_SORT_KEYS"] = False  # Disable key sorting in jsonify
 
 lock = threading.Lock()
+parser = argparse.ArgumentParser()
 
 # Set up basic authentication, name and password from .env variables
 app.config["BASIC_AUTH_USERNAME"] = (
@@ -235,13 +237,13 @@ async def handle_message(sync: bool):
           attachments = request.files.getlist('attachments')
           attachment_paths = []
 
-          upload_folder = os.path.join(os.getcwd(), 'work_dir', 'uploads')
+          upload_folder = files.get_abs_path('work_dir/uploads')
 
           if attachments:
               os.makedirs(upload_folder, exist_ok=True)
               for attachment in attachments:
                   filename = secure_filename(attachment.filename)
-                  save_path = os.path.join(upload_folder, filename)
+                  save_path = files.get_abs_path(upload_folder, filename)
                   attachment.save(save_path)
                   attachment_paths.append(save_path)
       else:
@@ -570,9 +572,11 @@ def run():
         def log_request(self, code="-", size="-"):
             pass  # Override to suppress request logging
 
+    args,_ = parser.parse_known_args()
+
     # Get configuration from environment
-    port = int(os.environ.get("WEB_UI_PORT", 0)) or None
-    host = os.environ.get("WEB_UI_HOST") or None
+    port = args.port or int(os.environ.get("WEB_UI_PORT", 0)) or None
+    host = args.host or os.environ.get("WEB_UI_HOST") or None
     use_cloudflare = os.environ.get("USE_CLOUDFLARE", "false").lower() == "true"
 
     # Initialize and start Cloudflare tunnel if enabled
@@ -599,4 +603,8 @@ def run():
 
 # run the internal server
 if __name__ == "__main__":
+
+    parser.add_argument("--port", type=int, default=0, help="Web UI port")
+    parser.add_argument("--host", type=str, default=0, help="Web UI host")
+
     run()
